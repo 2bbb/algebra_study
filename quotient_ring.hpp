@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./euclid_ring.hpp"
+#include "./euclidean_ring.hpp"
 
 #include <type_traits>
 #include <cstddef>
@@ -18,7 +18,7 @@ namespace math {
 		
 		value_type inverse() const {
 			if(v == value_type{}) throw std::overflow_error("divide by zero exception");
-			auto &&br = euclid_ring::bezout(v, g::value());
+			auto &&br = euclidean_ring::bezout(v, g::value());
 //			if(br.d != 1) {
 //				std::ostringstream ss{""};
 //				ss << g::value() << " is not prime: " << v << ", " << br.d << ", " << br.x;

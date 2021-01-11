@@ -48,10 +48,11 @@ int main(int argc, char *argv[]) {
         std::cout << (a * br.x + b * br.y == br.d) << std::endl;
     }
 
-    if(false) {
-        math::quotient_ring<Int3> v{1}, w{4};
+    if(true) {
+        math::quotient_ring<Int3> v{1}, w{4}, u{2};
         std::cout << (2 + v == w + 14) << std::endl;
         std::cout << (v * v == w * w) << std::endl;
+        std::cout << (v / u) << std::endl;
     }
     
     if(false) {
@@ -64,7 +65,7 @@ int main(int argc, char *argv[]) {
         std::cout << (2 / (i + 1) == (1 - i)) << std::endl;
     }
     
-    if(true) {
+    if(false) {
         // square_root 2
         math::quotient_ring<Sq2> sq2{0, 1};
         std::cout << (sq2 * sq2 == 2) << std::endl;

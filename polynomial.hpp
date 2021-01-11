@@ -1,5 +1,7 @@
 #pragma once
 
+#include "./euclidean_ring.hpp"
+
 #include <algorithm>
 #include <numeric>
 #include <vector>
@@ -49,12 +51,12 @@ namespace util {
 
 namespace math {
     template <
-        typename Ty,
+        typename RingTy,
         typename Cmp0,
         const char * const var
     >
     struct polynomial {
-        using value_type = Ty;
+        using value_type = RingTy;
         
         struct euclid_division_result {
             euclid_division_result() {};
@@ -67,7 +69,7 @@ namespace math {
         };
         
         static polynomial monomial(value_type a, std::size_t degree) {
-            std::vector<Ty> coef;
+            std::vector<RingTy> coef;
             coef.resize(degree + 1);
             coef.back() = a;
             return { coef };
@@ -75,7 +77,7 @@ namespace math {
 
         polynomial() {
             coef.resize(1);
-            coef[0] = Ty{};
+            coef[0] = euclidean_ring::zero<value_type>();
         };
         
         polynomial(const polynomial &pr) = default;
@@ -83,11 +85,11 @@ namespace math {
         polynomial &operator=(const polynomial &pr) = default;
         polynomial &operator=(polynomial &&pr) = default;
         
-        polynomial(const std::vector<Ty> &coef)
+        polynomial(const std::vector<RingTy> &coef)
         : coef{coef}
         {};
         
-        polynomial(std::vector<Ty> &&coef)
+        polynomial(std::vector<RingTy> &&coef)
         : coef{std::move(coef)}
         {};
         
@@ -96,7 +98,7 @@ namespace math {
             typename ... Xs,
             typename = typename std::enable_if<
                 !std::is_same<util::remove_const_reference<X>, polynomial>::value
-                && !std::is_same<util::remove_const_reference<X>, std::vector<Ty>>::value
+                && !std::is_same<util::remove_const_reference<X>, std::vector<RingTy>>::value
             >::type
         >
         polynomial(X && v, Xs && ... vs)
@@ -107,7 +109,7 @@ namespace math {
         { return polynomial{*this}; }
         
         polynomial operator-() const
-        { return operator*(Ty{-1}); }
+        { return operator*(euclidean_ring::minus(euclidean_ring::identity<RingTy>())); }
         
 #pragma mark +
         polynomial &operator+=(const polynomial &rhs) {
@@ -276,6 +278,11 @@ namespace math {
         std::size_t degree() const
         { return size() - 1; };
         
+        value_type &leading_coefficient()
+        { return coef.back(); };
+        value_type leading_coefficient() const
+        { return coef.back(); };
+        
         value_type &operator[](std::size_t index)
         { return coef.at(index); };
         value_type operator[](std::size_t index) const
@@ -287,8 +294,8 @@ namespace math {
         { return coef.at(index); };
         
         value_type apply(value_type x) {
-            value_type xn = 1;
-            value_type sum = value_type{};
+            value_type xn = euclidean_ring::identity<value_type>();
+            value_type sum = euclidean_ring::zero<value_type>();
             for(auto n = 0; n < size(); ++n) {
                 sum += coef[n] * xn;
                 xn *= x;
@@ -297,17 +304,12 @@ namespace math {
         }
         
     private:
-        std::vector<Ty> coef;
+        std::vector<value_type> coef;
         
         polynomial &normalize() {
             while(1 < coef.size() && Cmp0{}(coef.back())) coef.pop_back();
             return *this;
         }
-    };
-    
-    template <typename type, type ... coef>
-    struct f {
-        static constexpr polynomial<type> value{coef ...};
     };
 };
 
@@ -319,19 +321,11 @@ namespace math {
     {
         for(auto n = v.size() - 1; 0 < n; n--) {
             if(!Cmp0{}(v[n])) {
-                if(v[n] == Ty{-1}) os << "-";
-                else if(v[n] != Ty{1}) os << v[n];
+                if(v[n] == euclidean_ring::minus(euclidean_ring::identity<Ty>())) os << "-";
+                else if(v[n] != euclidean_ring::identity<Ty>()) os << v[n];
                 os << var_name << (1 < n ? "^" + std::to_string(n) : "") << " + ";
             }
         }
         return os << v[0];
     }
 }
-static const char var_meta[] = "y";
-
-//int main(int argc, char *argv[]) {
-//    math::polynomial<> f({1, 1, 1, 1, 1});
-//    math::polynomial<> g(f);
-//    math::polynomial<math::polynomial<>, math::compare0<math::polynomial<>>, var_meta> h({f, g});
-//    std::cout << h;
-//}
