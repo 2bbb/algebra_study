@@ -4,6 +4,8 @@
 #include "./polynomial.hpp"
 #include "./quotient_ring.hpp"
 
+using namespace bbb;
+
 struct CF {
     static const math::polynomial<math::rational_number> value() {
         static const math::polynomial<math::rational_number> v{1, 0, 1};
@@ -41,7 +43,7 @@ int main(int argc, char *argv[]) {
     if(false) {
         // euclid ring utilities
         math::polynomial<math::rational_number> a{1, 3, 1}, b{1, 1};
-        auto &&br = math::euclid_ring::bezout(a, b);
+        auto &&br = math::euclidean_ring::bezout(a, b);
         std::cout << br.x << std::endl;
         std::cout << br.y << std::endl;
         std::cout << br.d << std::endl;
