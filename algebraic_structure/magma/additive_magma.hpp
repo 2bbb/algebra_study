@@ -2,9 +2,10 @@
 
 namespace bbb {
 	namespace math {
-		namespace additive_magma {
-			template <typename monoid>
-			monoid op(const monoid &x, const monoid &y)
+		template <typename magma>
+		struct additive_magma {
+			template <typename magma>
+			static magma op(const magma &x, const magma &y)
 			{ return x + y; };
 		};
 	};
