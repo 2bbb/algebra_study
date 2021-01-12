@@ -18,4 +18,4 @@ namespace bbb {
             { return x / y; };
         };
     }; // math
-};
+}; // bbb

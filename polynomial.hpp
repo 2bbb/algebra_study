@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./euclidean_ring.hpp"
+#include "./algebraic_structure/euclidean_ring.hpp"
 
 #include "./utility.hpp"
 

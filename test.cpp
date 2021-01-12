@@ -40,9 +40,11 @@ int main(int argc, char *argv[]) {
         std::cout << y * r.quotient + r.remainder << std::endl;
     }
     
-    if(false) {
+    if(true) {
         // euclid ring utilities
-        math::polynomial<math::rational_number> a{1, 3, 1}, b{1, 1};
+        math::polynomial<math::rational_number> a{1, 3, 1}, b{1, 1}, c{1, 1, 2};
+        assert(math::ring::check_ring(a, b, c) && "check_ring");
+
         auto &&br = math::euclidean_ring::bezout(a, b);
         std::cout << br.x << std::endl;
         std::cout << br.y << std::endl;
