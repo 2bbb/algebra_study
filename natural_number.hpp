@@ -29,6 +29,14 @@ namespace bbb {
         { return n; };
         constexpr value_type at(std::size_t index) const
         { return values[index]; }
+        constexpr value_type &at(std::size_t index)
+        { return values[index]; }
+
+        constexpr value_type operator[](std::size_t index) const
+        { return values[index]; }
+        constexpr value_type &operator[](std::size_t index)
+        { return values[index]; }
+
         value_type values[n];
     };
 };
@@ -47,13 +55,15 @@ namespace bbb {
             constexpr std::size_t max(std::size_t x, std::size_t y)
             { return x < y ? y : x; };
         };
-        template <std::size_t digit64>
+
+        template <std::size_t digit64, typename = void>
         struct natural_number {
-            using array_t = bbb::array<std::uint64_t, digit64>;
-            static constexpr std::size_t max{1000000000000ull};
-            static constexpr std::size_t carry_digit{12ull};
+            static constexpr std::size_t max{1'000'000'000ull};
+            static constexpr std::size_t carry_digit{9ull};
             // static constexpr std::size_t max{100ull};
             // static constexpr std::size_t carry_digit{2ull};
+
+            using array_t = bbb::array<std::uint64_t, digit64>;
 
             using iteration = make_index_sequence<digit64>;
             static constexpr iteration is{};
@@ -70,62 +80,52 @@ namespace bbb {
             {};
 
             constexpr natural_number()
-            : values{{0ul}}
+            : values{}
             , max_digit{1}
             {};
 
-            constexpr natural_number(const natural_number &) = default;
-            natural_number &operator=(const natural_number &) = default;
+            constexpr natural_number(const natural_number &rhs)
+            : values{normalize(rhs.values)}
+            , max_digit{calc_max_digit()}
+            {};
+
+            constexpr natural_number &operator=(const natural_number &rhs) {
+                values = normalize(rhs.values);
+                max_digit = calc_max_digit();
+                return *this;
+            };
 
             static constexpr array_t normalize(const array_t &values)
             { return normalize(values, iteration{}); }
             
             template <std::size_t ... ns>
-            static constexpr array_t normalize(const array_t &values,
+            static constexpr array_t normalize(const array_t &values_,
                                                index_sequence<ns ...>)
             {
-                return normalize_impl(
-                    {(values.at(ns) % max) ...},
-                    {(values.at(ns) / max) ...},
-                    iteration{}
-                );
-            }
-            template <std::size_t ... ns>
-            static constexpr array_t normalize_impl(const array_t &values,
-                                                    const array_t &carry,
-                                                    index_sequence<ns ...>)
-            {
-                // std::cout << "has_carry: " << has_carry(carry) << std::endl;
-                // print(carry);
-                return has_carry(carry)
-                    ? normalize_impl(
-                        {(
-                            ns == 0
-                            ? values.at(ns)
-                            : (values.at(ns) + carry.at(ns - 1)) % max
-                        ) ...},
-                        {(
-                            ns == 0
-                            ? 0ul
-                            : (values.at(ns) + carry.at(ns - 1)) / max
-                        ) ...},
-                        iteration{}
-                    )
-                    : values;
+                array_t values = values_;
+                bool carry_is_empty = false;
+                do {
+                    array_t tmp = {
+                        ((values.at(ns) % max) + ((ns == 0) ? 0 : (values.at(ns - 1) / max)))
+                    ...};
+                    values = std::move(tmp);
+                    carry_is_empty = true;
+                    for(auto i = 0; i < values.size(); ++i)
+                    { if(max <= values.at(i)) carry_is_empty = false; };
+                } while(!carry_is_empty);
+
+                return values;
             }
 
-            constexpr std::size_t calc_max_digit(std::size_t begin = 0,
-                                                 std::size_t end = digit64 - 1) const
+            constexpr std::size_t calc_max_digit(std::size_t end = digit64 - 1) const
             {
-                return begin + 1 == end
-                    ? values.at(begin) == 0
-                        ? 1ul
-                        : end
-                    : values.at(end) != 0
-                        ? end
-                        : 1 < calc_max_digit(begin + (end - begin) / 2, end)
-                            ? calc_max_digit(begin + (end - begin) / 2, end)
-                            : calc_max_digit(begin, begin + (end - begin) / 2);
+                while(1 <= end) {
+                    if(values[end] != 0) {
+                        return end + 1;
+                    }
+                    end--;
+                }
+                return 1;
             }
 
             constexpr natural_number operator+() const
@@ -138,43 +138,12 @@ namespace bbb {
             constexpr natural_number plus(const natural_number &rhs,
                                           index_sequence<ns ...>) const 
             {
-                return plus_impl(
-                    {(values.at(ns) < (max - rhs.values.at(ns))
+                return {
+                    (values.at(ns) < (max - rhs.values.at(ns))
                         ? (values.at(ns) + rhs.values.at(ns))
                         : (values.at(ns) + (max - rhs.values.at(ns)))
-                    ) ...},
-                    {((values.at(ns) < (max - rhs.values.at(ns))) ? 0ul : 1ul) ... },
-                    iteration{}
-                );
-            }
-
-            template <std::size_t ... ns>
-            constexpr natural_number plus_impl(const array_t &result,
-                                               const array_t &carry,
-                                               index_sequence<ns ...>) const
-            {
-                return has_carry(carry)
-                    ? plus_impl(
-                        {(
-                            ns == 0
-                            ? 0ul
-                            : carry.at(ns - 1) == 0ul
-                                ? values.at(ns)
-                                : (result.at(ns) < (max - carry.at(ns - 1)))
-                                    ? (values.at(ns) + carry.at(ns - 1))
-                                    : (values.at(ns) + (max - carry.at(ns - 1))
-                            )
-                        ) ...},
-                        {(
-                            ns == 0
-                            ? 0ul
-                            : (result.at(ns) < (max - carry.at(ns - 1)))
-                                ? 0ul
-                                : 1ul
-                        ) ... },
-                        iteration{}
-                    )
-                    : natural_number{result};
+                    ) ...
+                };
             }
 
             static constexpr bool has_carry(const array_t &carry,
@@ -191,7 +160,7 @@ namespace bbb {
                                 || has_carry(carry, begin + (end - begin) / 2, end - 1);
             };
 
-            natural_number &operator+=(const natural_number &rhs)
+            constexpr natural_number &operator+=(const natural_number &rhs)
             { return *this = operator+(rhs); };
 
             constexpr natural_number operator-(const natural_number &rhs) const
@@ -201,128 +170,43 @@ namespace bbb {
             constexpr natural_number minus(const natural_number &rhs,
                                           index_sequence<ns ...>) const
             {
-                return minus_impl(
-                    {(
+                return  {
+                    (
                         values.at(ns) < rhs.values.at(ns)
                             ? values.at(ns) + (max - rhs.values.at(ns))
                             : values.at(ns) - rhs.values.at(ns)
-                    ) ...},
-                    {(values.at(ns) < rhs.values.at(ns) ? 1ul : 0ul) ...},
-                    iteration{}
-                );
+                    ) ...
+                };
             }
 
-            template <std::size_t ... ns>
-            constexpr natural_number minus_impl(const array_t &result,
-                                                const array_t &carry,
-                                                index_sequence<ns ...>) const
-            {
-                return has_carry(carry)
-                    ? minus_impl(
-                        {(ns == digit64 - 1
-                            ? result.at(ns)
-                            : (result.at(ns) < carry.at(ns + 1)
-                                ? result.at(ns) + (max - carry.at(ns + 1))
-                                : result.at(ns) - carry.at(ns + 1)
-                            )
-                        ) ...},
-                        {(ns == digit64 - 1
-                            ? 0ul
-                            : (result.at(ns) < carry.at(ns + 1)
-                                ? 1ul
-                                : 0ul
-                            )
-                        ) ...},
-                        iteration{}
-                    )
-                    : natural_number{result};
-            };
-
-            natural_number &operator-=(const natural_number &rhs)
+            constexpr natural_number &operator-=(const natural_number &rhs)
             { return *this = operator-(rhs); };
 
-            constexpr natural_number operator*(const natural_number &rhs) const
-            { return mult(rhs); };
+            constexpr natural_number operator*(const std::uint64_t rhs) const {
+                array_t res = values;
+                for(auto i = 0; i < max_digit; ++i) {
+                    res[i] *= rhs;
+                }
+                return res;
+            };
+
+            constexpr natural_number operator*(const natural_number &rhs) const {
+                natural_number res;
+                for(auto i = 0; i < rhs.max_digit; ++i) {
+                    res += shift(i) * rhs.values.at(i);
+                }
+                return res;
+            };
             
-            constexpr natural_number mult(const natural_number &rhs) const
-            { return mult_impl(rhs, iteration{}); };
-
-#if 0
-            template <std::size_t ... ns>
-            constexpr natural_number mult_impl(const natural_number &rhs,
-                                               index_sequence<ns ...>) const
-            {
-                return {sum(
-                    bbb::array<array_t, digit64>{mult_array(ns, rhs.values, iteration{}) ...},
-                    iteration{}
-                )};
-            } 
+            constexpr natural_number shift(std::size_t n) const
+            { return shift_impl(n, iteration{}); };
 
             template <std::size_t ... ns>
-            constexpr array_t mult_array(std::size_t n,
-                                         const array_t &vs,
-                                         index_sequence<ns ...>) const
-            {
-                return {(
-                    ns < n
-                        ? 0
-                        : values.at(n) * vs.at(ns - n)
-                ) ...}; 
-            };
+            constexpr natural_number shift_impl(std::size_t n,
+                                                index_sequence<ns ...>) const
+            { return { (ns < n ? 0 : values.at(ns - n)) ... }; };
 
-
-            template <std::size_t ... ns>
-            constexpr array_t sum(const bbb::array<array_t, digit64> &vs,
-                                  index_sequence<ns ...>) const
-            {
-                return {sum(vs, ns) ...};
-            };
-
-            constexpr std::uint64_t sum(const bbb::array<array_t, digit64> &vs,
-                                        std::size_t index,
-                                        std::size_t offset = 0ul) const
-            {
-                return offset == vs.size()
-                    ? 0ul
-                    : vs.at(offset).at(index) + sum(vs, index, offset + 1);
-            };
-#endif
-#if 1
-            template <std::size_t ... ns>
-            constexpr natural_number mult_impl(const natural_number &rhs,
-                                               index_sequence<ns ...>) const
-            {
-                return sum({
-                    shift_and_scalar(ns, rhs.values, iteration{}) ...
-                });
-            } 
-
-            template <std::size_t ... ns>
-            constexpr natural_number shift_and_scalar(std::size_t n,
-                                                      const array_t &vs,
-                                                      index_sequence<ns ...>) const
-            {
-                return {(ns < n
-                    ? 0
-                    : values.at(n) * vs.at(ns - n)
-                ) ...};
-            };
-
-
-            constexpr natural_number sum(const bbb::array<natural_number, digit64> &vs,
-                                         std::size_t position = 0,
-                                         std::size_t range = digit64 - 1) const
-            {
-                return position == range
-                    ? natural_number{0}
-                    : position + 1 == range
-                        ? vs.at(position)
-                        : sum(vs, position, position + (range - position) / 2)
-                        + sum(vs, position + (range - position) / 2, range);
-            };
-#endif
-
-            natural_number &operator*=(const natural_number &rhs)
+            constexpr natural_number &operator*=(const natural_number &rhs)
             { return *this = operator*(rhs); };
 
             constexpr bool operator==(const natural_number &rhs) const
@@ -360,11 +244,13 @@ namespace bbb {
             { return !operator<(rhs); };
 
             constexpr natural_number frac() const {
-                return (operator==(0) || operator==(1))
-                    ? natural_number{1}
-                    : operator*(operator-(1).frac());
+                natural_number res = *this;
+                for(natural_number i = 2; i < *this; i += 1) {
+                    res *= i;
+                }
+                return res;
             }
-
+            
             array_t values;
             std::size_t max_digit;
 
@@ -383,10 +269,10 @@ namespace bbb {
             
             friend std::ostream &operator<<(std::ostream &os, const natural_number &v)
             { return os << v.str(); };
-        };
+        }; // natural_number<1>
             
         template <>
-        struct natural_number<1ull> {
+        struct natural_number<1ull, void> {
             constexpr natural_number(std::uint64_t n)
             : value{n}
             {};
@@ -431,6 +317,25 @@ namespace bbb {
             { return os << v.value; };
 
             std::uint64_t value;
-        };
-    };
-};
+        }; // natural_number<1>
+
+        namespace literal {
+            template <char ... ns>
+            constexpr auto operator"" _N()
+                -> typename std::enable_if<
+                    1 < sizeof...(ns),
+                    natural_number<(sizeof...(ns) - 1) / natural_number<2>::carry_digit + 1>
+                >::type
+            {
+                constexpr std::size_t carry_digit = natural_number<2>::carry_digit;
+                array<std::uint64_t, (sizeof...(ns) - 1) / carry_digit + 1> res;
+                array<char, sizeof...(ns)> cs{ns ...};
+                for(auto i = cs.size() - 1; 0 < i; --i) {
+                    res[i / carry_digit] = res[i / carry_digit] * 10 + (cs[cs.size() - i - 1] - '0');
+                }
+                res[0] = res[0] * 10 + cs[cs.size() - 1] - '0';
+                return res;
+            }
+        }; // literal
+    }; // math
+}; // bbb
