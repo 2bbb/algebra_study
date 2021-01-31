@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./algebraic_structure/euclidean_ring.hpp"
+#include "./algebraic_structure/ring.hpp"
 
 #include "./utility.hpp"
 
@@ -57,7 +57,8 @@ namespace bbb {
         >
         struct polynomial {
             using cofficient_field_type = CoefficientField;
-            
+            using ring = math::ring<cofficient_field_type>;
+
             struct euclid_division_result {
                 euclid_division_result() {};
                 euclid_division_result(polynomial quotient, polynomial remainder)
@@ -77,7 +78,7 @@ namespace bbb {
     
             polynomial() {
                 coef.resize(1);
-                coef[0] = euclidean_ring::zero<cofficient_field_type>();
+                coef[0] = ring::zero();
             };
             
             polynomial(const polynomial &pr) = default;
@@ -109,7 +110,7 @@ namespace bbb {
             { return polynomial{*this}; }
             
             polynomial operator-() const
-            { return operator*(euclidean_ring::opposite(euclidean_ring::identity<cofficient_field_type>())); }
+            { return operator*(ring::opposite(ring::identity())); }
             
     #pragma mark +
             polynomial &operator+=(const polynomial &rhs) {
@@ -294,8 +295,8 @@ namespace bbb {
             { return coef.at(index); };
             
             cofficient_field_type apply(cofficient_field_type x) {
-                cofficient_field_type xn = euclidean_ring::identity<cofficient_field_type>();
-                cofficient_field_type sum = euclidean_ring::zero<cofficient_field_type>();
+                cofficient_field_type xn = ring::identity();
+                cofficient_field_type sum = ring::zero();
                 for(auto n = 0; n < size(); ++n) {
                     sum += coef[n] * xn;
                     xn *= x;
@@ -321,10 +322,11 @@ namespace bbb {
         template <typename Ty, typename Cmp0, const char * const var_name>
         std::ostream &operator<<(std::ostream &os, const polynomial<Ty, Cmp0, var_name> &v)
         {
+            using ring = math::ring<Ty>;
             for(auto n = v.size() - 1; 0 < n; n--) {
                 if(!Cmp0{}(v[n])) {
-                    if(v[n] == euclidean_ring::opposite(euclidean_ring::identity<Ty>())) os << "-";
-                    else if(v[n] != euclidean_ring::identity<Ty>()) os << v[n];
+                    if(v[n] == ring::opposite(ring::identity())) os << "-";
+                    else if(v[n] != ring::identity()) os << v[n];
                     os << var_name << (1 < n ? "^" + std::to_string(n) : "") << " + ";
                 }
             }

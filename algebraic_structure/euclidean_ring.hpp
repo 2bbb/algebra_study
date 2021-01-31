@@ -9,7 +9,7 @@
 namespace bbb {
 	namespace math {
 		namespace euclidean_ring {
-			using namespace ring;
+			// using namespace ring;
 			
 			// euclidean_ring R requires:
 			// \forall a, b \in R, b != 0 -> \exists q, r \in R s.t. a = b * q + r /\ d(r) < d(b)
