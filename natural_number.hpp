@@ -37,6 +37,16 @@ namespace bbb {
         constexpr value_type &operator[](std::size_t index)
         { return values[index]; }
 
+        constexpr value_type front() const
+        { return values[0]; }
+        constexpr value_type &front()
+        { return values[0]; }
+
+        constexpr value_type back() const
+        { return values[n - 1]; }
+        constexpr value_type &back()
+        { return values[n - 1]; }
+
         value_type values[n];
     };
 };
@@ -89,9 +99,28 @@ namespace bbb {
             , max_digit{calc_max_digit()}
             {};
 
+            template <
+                std::size_t n,
+                typename = typename std::enable_if<n < digit64>::type
+            >
+            constexpr natural_number(const natural_number<n> &rhs)
+            : values{rhs.values}
+            , max_digit{rhs.max_digit}
+            {};
+
             constexpr natural_number &operator=(const natural_number &rhs) {
                 values = normalize(rhs.values);
                 max_digit = calc_max_digit();
+                return *this;
+            };
+
+            template <
+                std::size_t n,
+                typename = typename std::enable_if<n < digit64>::type
+            >
+            constexpr natural_number &operator=(const natural_number &rhs) {
+                values = rhs.values;
+                max_digit = rhs.max_digit;
                 return *this;
             };
 
@@ -146,20 +175,6 @@ namespace bbb {
                 };
             }
 
-            static constexpr bool has_carry(const array_t &carry,
-                                            std::size_t begin = 0,
-                                            std::size_t end = digit64 - 1)
-            {
-                return (carry.at(begin) != 0) || (carry.at(end) != 0)
-                    ? true
-                    : begin + 1 == end
-                        ? carry.at(begin) != 0
-                        : begin + 2 == end
-                            ? carry.at(begin + 1) != 0
-                            : has_carry(carry, begin + 1, begin + (end - begin) / 2)
-                                || has_carry(carry, begin + (end - begin) / 2, end - 1);
-            };
-
             constexpr natural_number &operator+=(const natural_number &rhs)
             { return *this = operator+(rhs); };
 
@@ -211,6 +226,7 @@ namespace bbb {
 
             constexpr bool operator==(const natural_number &rhs) const
             { return (max_digit != rhs.max_digit) ? false : eq(rhs, 0); };
+
             constexpr bool eq(const natural_number &rhs,
                               std::size_t index) const
             {
@@ -220,6 +236,26 @@ namespace bbb {
                         : false
                     : true;
             }    
+
+            template <std::size_t n>
+            constexpr bool operator==(const natural_number<n> &rhs) const {
+                constexpr bool is_this_minimum = max_digit < rhs.max_digit;
+                constexpr std::size_t minimum_digit = is_this_minimum
+                                                    ? max_digit
+                                                    : rhs.max_digit;
+                bool is_same = true;
+                for(auto i = 0; i < minimum_digit; ++i) {
+                    is_same = is_same && (values[i] == rhs.values[i]);
+                }
+                if(!is_same) return false;
+                auto &vs = is_this_minimum
+                         ? values
+                         : rhs.values;
+                for(auto i = minimum_digit; vs.size(); ++i) {
+                    is_same = is_same && (vs[i] == 0);
+                }
+                return is_same;
+            };
 
             constexpr bool operator!=(const natural_number &rhs) const
             { return !operator==(rhs); };
@@ -281,22 +317,25 @@ namespace bbb {
             : value{0}
             {};
             
+            constexpr natural_number(const natural_number &) = default;
+            constexpr natural_number &operator=(const natural_number &) = default;
+
             constexpr natural_number operator+() const
             { return {value}; };
 
             constexpr natural_number operator+(const natural_number &rhs) const
             { return {value + rhs.value}; };
-            natural_number &operator+=(const natural_number &rhs)
+            constexpr natural_number &operator+=(const natural_number &rhs)
             { return *this = operator+(rhs); };
 
             constexpr natural_number operator-(const natural_number &rhs) const
             { return {rhs.value < value ? value - rhs.value : 0}; };
-            natural_number &operator-=(const natural_number &rhs)
+            constexpr natural_number &operator-=(const natural_number &rhs)
             { return *this = operator-(rhs); };
 
             constexpr natural_number operator*(const natural_number &rhs) const
             { return {value * rhs.value}; };
-            natural_number &operator*=(const natural_number &rhs)
+            constexpr natural_number &operator*=(const natural_number &rhs)
             { return *this = operator*(rhs); };
 
             constexpr bool operator==(const natural_number &rhs) const
@@ -319,22 +358,67 @@ namespace bbb {
             std::uint64_t value;
         }; // natural_number<1>
 
+        template <char ... ns>
+        constexpr std::size_t count_digit() {
+            constexpr array<char, sizeof...(ns)> cs{ns ...};
+            std::size_t n = 0;
+            for(auto i = 0; i < cs.size(); ++i) {
+                if('0' <= cs[i] && cs[i] <= '9') ++n;
+            }
+            return n;
+        }
+
         namespace literal {
             template <char ... ns>
             constexpr auto operator"" _N()
                 -> typename std::enable_if<
-                    1 < sizeof...(ns),
-                    natural_number<(sizeof...(ns) - 1) / natural_number<2>::carry_digit + 1>
+                    natural_number<2>::carry_digit < count_digit<ns ...>(),
+                    natural_number<(count_digit<ns ...>() - 1) / natural_number<2>::carry_digit + 1>
                 >::type
             {
                 constexpr std::size_t carry_digit = natural_number<2>::carry_digit;
-                array<std::uint64_t, (sizeof...(ns) - 1) / carry_digit + 1> res;
+
+                array<std::uint64_t, (count_digit<ns ...>() - 1) / carry_digit + 1> res;
+                array<char, sizeof...(ns)> cs{ns ...};
+
+                auto n = (count_digit<ns ...>() - 1) / carry_digit;
+                auto i = cs.size() - 1;
+                auto carry = 0;
+
+                while(0 < n) {
+                    // std::cout << i << ": " << cs[cs.size() - i - 1] << std::endl;
+                    auto c = cs[cs.size() - i - 1];
+                    if('0' <= c && c <= '9') {
+                        auto &r = res[n - 1];
+                        r *= 10;
+                        r += (c - '0');
+                        ++carry;
+                    }
+                    if(carry == 9) {
+                        --n;
+                        carry = 0;
+                    }
+                    --i;
+                }
+                // res[0] *= 10;
+                // res[0] += (cs.back() - '0');
+                return res;
+            }
+
+            template <char ... ns>
+            constexpr auto operator"" _N()
+                -> typename std::enable_if<
+                    count_digit<ns ...>() <= natural_number<2>::carry_digit,
+                    natural_number<1>
+                >::type
+            {
+                std::uint16_t res{0ull};
                 array<char, sizeof...(ns)> cs{ns ...};
                 for(auto i = cs.size() - 1; 0 < i; --i) {
-                    res[i / carry_digit] = res[i / carry_digit] * 10 + (cs[cs.size() - i - 1] - '0');
+                    res = res * 10 + (cs[cs.size() - i - 1] - '0');
                 }
-                res[0] = res[0] * 10 + cs[cs.size() - 1] - '0';
-                return res;
+                res = res * 10 + cs[cs.size() - 1] - '0';
+                return { res };
             }
         }; // literal
     }; // math
